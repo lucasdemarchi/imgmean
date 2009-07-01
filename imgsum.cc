@@ -3,17 +3,18 @@
 #include <pthread.h>
 #include <getopt.h>
 #include <stdlib.h>
-//#include <Cimg.h>
+#include <CImg.h>
 
 #define DEFAULT_NUM_THREADS 4
 #define DEFAULT_MEMORY_CONSTRAINT 0
+
 struct options_t {
 	int memory_constraint;
 	int num_threads;
 };
 
 //queue<Cimg *> imgqueue;
-//std::queue<int> imgqueue;
+std::stack<int*> imgqueue;
 
 options_t options ={
 	DEFAULT_MEMORY_CONSTRAINT,
