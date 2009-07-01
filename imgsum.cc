@@ -13,9 +13,6 @@ struct options_t {
 	int num_threads;
 };
 
-//queue<Cimg *> imgqueue;
-std::stack<int*> imgqueue;
-
 options_t options ={
 	DEFAULT_MEMORY_CONSTRAINT,
 	DEFAULT_NUM_THREADS
@@ -25,6 +22,7 @@ static inline void print_usage(std::ostream& f)
 {
 
 
+	return;
 }
 
 static inline bool getoptions(int argc, char* argv[])
@@ -48,8 +46,6 @@ static inline bool getoptions(int argc, char* argv[])
 				break;
 			case 'o':
 				break;
-			case 'i':
-				break;
 			case '?':
 				print_usage(std::cerr);
 				return false;
@@ -61,15 +57,39 @@ static inline bool getoptions(int argc, char* argv[])
 				exit(-1);
 		}
 	} while(next_option != -1);
+
+	return true;
 }
 
-std::stack<int> img_stack;
+//std::stack<int> img_stack;
+
+using namespace cimg_library;
 
 int main(int argc, char* argv[])
 {
 	if(!getoptions(argc, argv))
 		return 0;
+	// iterate through images
+	CImg<double> out(800, 600, 1, 3, 0);
 
+	for(int n = argc - optind; optind < argc; optind++){
+		try{
+			CImg<double> image(argv[optind]);
+//			std::cout << "File info: " << image.size() << " pixel values (r + g + b).\n";
+//			std::cout << "dimx, dimy, dimz, dimv: " << image.dimx() << " "
+//			          << image.dimy() << " " << image.dimz() << " " << image.dimv() << "\n";
+
+//			std::cout << "Memory used: " << ((image.size() * sizeof(unsigned int))
+//			                             /(float)(1024*1024)) << " MB.\n";
+			image /=n;
+			out += image;
+
+		} catch(CImgIOException ex) {
+			std::cerr << "File " << argv[optind] << " not found\n";
+		}
+	}
+
+	out.save("out.jpg");
 
 	return 0;
 }

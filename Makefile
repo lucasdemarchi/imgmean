@@ -1,6 +1,6 @@
 
 CC=g++
-CCFLAGS+=-O3 -Wall -c
+CCFLAGS+=-O6 -Wall -Dcimg_display=0 -c
 
 SOURCES=imgsum.cc
 OBJECTS=$(SOURCES:.cc=.o)
