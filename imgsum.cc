@@ -3,7 +3,9 @@
 #include <pthread.h>
 #include <getopt.h>
 #include <stdlib.h>
-#include <CImg.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gtk/gtk.h>
+
 
 #define DEFAULT_NUM_THREADS 4
 #define DEFAULT_MEMORY_CONSTRAINT 0
@@ -63,33 +65,32 @@ static inline bool getoptions(int argc, char* argv[])
 
 //std::stack<int> img_stack;
 
-using namespace cimg_library;
 
 int main(int argc, char* argv[])
 {
+	gdk_init(&argc, &argv);
 	if(!getoptions(argc, argv))
 		return 0;
 	// iterate through images
-	CImg<double> out(800, 600, 1, 3, 0);
 
-	for(int n = argc - optind; optind < argc; optind++){
-		try{
-			CImg<double> image(argv[optind]);
-//			std::cout << "File info: " << image.size() << " pixel values (r + g + b).\n";
-//			std::cout << "dimx, dimy, dimz, dimv: " << image.dimx() << " "
-//			          << image.dimy() << " " << image.dimz() << " " << image.dimv() << "\n";
+	for(; optind < argc; optind++){
 
-//			std::cout << "Memory used: " << ((image.size() * sizeof(unsigned int))
-//			                             /(float)(1024*1024)) << " MB.\n";
-			image /=n;
-			out += image;
+		GdkPixbuf* buf = NULL;
+		buf = gdk_pixbuf_new_from_file (argv[optind], NULL);
+		
+		if(!buf){
+			std::cerr << "Error loading "<< argv[optind] << "\n";
 
-		} catch(CImgIOException ex) {
-			std::cerr << "File " << argv[optind] << " not found\n";
 		}
+		std::cout << "Image info: \n";
+		std::cout << "Width: " << gdk_pixbuf_get_width(buf) << "\n";
+		std::cout << "Height: " << gdk_pixbuf_get_height(buf) << "\n\n";
+
+		g_object_unref (G_OBJECT (buf));
+
 	}
 
-	out.save("out.jpg");
 
 	return 0;
+
 }
