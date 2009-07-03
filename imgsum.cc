@@ -82,9 +82,9 @@ int main(int argc, char* argv[])
 			std::cerr << "Error loading "<< argv[optind] << "\n";
 
 		}
-		std::cout << "Image info: \n";
-		std::cout << "Width: " << gdk_pixbuf_get_width(buf) << "\n";
-		std::cout << "Height: " << gdk_pixbuf_get_height(buf) << "\n\n";
+		//std::cout << "Image info: \n";
+		//std::cout << "Width: " << gdk_pixbuf_get_width(buf) << "\n";
+		//std::cout << "Height: " << gdk_pixbuf_get_height(buf) << "\n\n";
 
 		g_object_unref (G_OBJECT (buf));
 
