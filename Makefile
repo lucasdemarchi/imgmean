@@ -1,9 +1,9 @@
 
-CC=g++
-CCFLAGS+=-O6 -Wall -c
+CC=gcc
+CFLAGS+=-O6 -Wall -c -std=c99
 
-SOURCES=imgsum.cc
-OBJECTS=$(SOURCES:.cc=.o)
+SOURCES=imgsum.c parser.c
+OBJECTS=$(SOURCES:.c=.o)
 INCLUDES=`pkg-config --cflags gtk+-2.0  gdk-pixbuf-2.0`
 EXECUTABLE=imgsum
 LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0`
@@ -12,8 +12,8 @@ LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0`
 $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
-.cc.o:
-	$(CC) $(CCFLAGS) $(INCLUDES) $< -o $@
+.c.o:
+	$(CC) $(CFLAGS) $(INCLUDES) $< -o $@
 
 all: $(SOURCES) $(EXECUTABLE)
 
