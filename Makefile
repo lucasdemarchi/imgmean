@@ -6,7 +6,7 @@ SOURCES=imgsum.c parser.c
 OBJECTS=$(SOURCES:.c=.o)
 INCLUDES=`pkg-config --cflags gtk+-2.0  gdk-pixbuf-2.0`
 EXECUTABLE=imgsum
-LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0`
+LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0` -pthread
 
 
 $(EXECUTABLE): $(OBJECTS)
@@ -18,4 +18,5 @@ $(EXECUTABLE): $(OBJECTS)
 all: $(SOURCES) $(EXECUTABLE)
 
 clean:
-	rm $(OBJECTS) $(EXECUTABLE)
+	rm *.o
+	rm $(EXECUTABLE)
