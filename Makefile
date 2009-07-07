@@ -1,6 +1,6 @@
 
 CC=gcc
-CFLAGS+=-O6 -Wall -c -std=c99
+CFLAGS+=-O6 -Wall -c -std=gnu99
 
 SOURCES=imgsum.c parse_options.c
 OBJECTS=$(SOURCES:.c=.o)
