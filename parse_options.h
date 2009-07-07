@@ -22,6 +22,7 @@
 #define PARSER_H
 
 struct options_t {
+	unsigned int window;
 	char* output_dir;
 	char* input_dir;
 	char* format;

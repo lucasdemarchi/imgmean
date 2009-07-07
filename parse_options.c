@@ -32,9 +32,12 @@ static inline void print_usage(FILE* f)
 				"USAGE:\n"
 				"\timgsum <options> input_folder output_folder\n\n"
 				"OPTIONS:\n"
+				"\t-w,--window NUM            Window size, i.e., how many images are"
+				"\t                           are used to make one image. Default: 2"
 				"\t-h,--help                  Print this usage message\n"
-				"\t-f,--format FORMAT         Format to save the pictures. Available\n"
-				"\t                           options: jpg, png. Default: jpg\n"
+				"\t-f,--format FORMAT         Format to load pictures.They will be saved\n"
+				"\t                           with the same format.\n"
+				"\t                           Available options: jpg, png. Default: jpg\n"
 				"\t-a,--affinity              Each created thread runs in a separated\n"
 				"\t                           processor (if possible)\n"
 				"\t-j,--threads [NUM]         Create NUM threads.\n"
@@ -54,9 +57,10 @@ static inline void print_usage(FILE* f)
 int getoptions(int argc, char* argv[], struct options_t *options)
 {
 	int next_option;
-	const char* const short_options = "hf:aj::v";
+	const char* const short_options = "w:hf:aj::v";
 
 	static const struct option long_options[] = {
+		{"window",    required_argument, NULL, 'w' },
 		{"help",      no_argument,       NULL, 'h' },
 		{"format",    required_argument, NULL, 'f' },
 		{"affinity",  no_argument,       NULL, 'a' },
@@ -92,9 +96,17 @@ int getoptions(int argc, char* argv[], struct options_t *options)
 				break;
 			case 'v':
 				options->verbose = 1;
+				break;
+			case 'w':
+				options->window = atoi(optarg);
+				if(options->window < 2){
+					fprintf(stderr, "Error setting window size\n");
+					return 2;
+				}
+				break;
 			default:
 				print_usage(stderr);
-				return 2;
+				return 3;
 				break;
 		}
 	} while(next_option != -1);
