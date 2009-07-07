@@ -1,5 +1,5 @@
 /*
- * parser.h
+ * parse_options.h
  * This file is part of imgsum
  *
  * Copyright (C) 2009 - Lucas De Marchi
@@ -21,18 +21,19 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#define DEFAULT_NUM_THREADS 1
-//#define DEFAULT_MEMORY_CONSTRAINT 0
-
 struct options_t {
-//	int memory_constraint;
-	int num_threads;
 	char* output_dir;
 	char* input_dir;
+	char* format;
+
+	unsigned int num_threads;	
+	int affinity;
+
+	int verbose;
+
 };
 
-
-int getoptions(int argc, char* argv[]);
+int getoptions(int argc, char* argv[], struct options_t *options);
 void print_options();
 
 #endif

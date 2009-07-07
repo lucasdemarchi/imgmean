@@ -2,7 +2,7 @@
 CC=gcc
 CFLAGS+=-O6 -Wall -c -std=c99
 
-SOURCES=imgsum.c parser.c
+SOURCES=imgsum.c parse_options.c
 OBJECTS=$(SOURCES:.c=.o)
 INCLUDES=`pkg-config --cflags gtk+-2.0  gdk-pixbuf-2.0`
 EXECUTABLE=imgsum

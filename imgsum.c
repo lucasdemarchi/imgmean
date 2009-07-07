@@ -1,17 +1,63 @@
+/*
+ * imgsum.c
+ * This file is part of imgsum
+ *
+ * Copyright (C) 2009 - Lucas De Marchi
+ *
+ * imgsum is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as published by
+ * the Free Software Foundation.
+ *
+ * imgsum is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Trissa; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ */
+
 #include <pthread.h>
-#include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gtk/gtk.h>
 
-#include "parser.h"
+#include <dirent.h>
+#include "parse_options.h"
+
+struct options_t options ={
+	.output_dir   = NULL,
+	.input_dir    = NULL,
+	.format       = "jpg",
+
+	.num_threads  = 1,
+	.affinity     = 0,
+
+	.verbose      = 0
+};
+
+static inline int isdir(char* path)
+{
+	DIR* dir = opendir(path);
+	if(!dir)
+		return 0;
+	closedir(dir);
+	return 1;
+}
+
+
 
 int main(int argc, char* argv[])
 {
 	int ret;
 	gdk_init(&argc, &argv);
-	if((ret = getoptions(argc, argv)) <=0)
+
+
+
+	if((ret = getoptions(argc, argv, &options)) <=0)
 		return ret;
 	// iterate through images
 
