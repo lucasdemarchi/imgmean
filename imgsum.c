@@ -36,6 +36,10 @@
 #define LOG(a,b) do { } while(0)
 #endif
 
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
+
+
 struct options_t options ={
 	.window       = 2,
 	.output_dir   = NULL,
@@ -46,7 +50,18 @@ struct options_t options ={
 	.affinity     = 0,
 
 	.verbose      = 0
+
 };
+
+
+struct images_params_t {
+	unsigned int height;
+	unsigned int width;
+	unsigned int channels;
+	unsigned int rowstride;
+};
+
+struct images_params_t image_params;
 
 
 
@@ -84,13 +99,81 @@ struct thread_params{
 };
 
 
+/* Here starts the algorithm to calculate new images
+ * off the sequence availabel at namelist[]
+ **********************************************************/
+
+#if !defined(STRICT_C)
+/* We know it works in Linux, Windows and MacOS
+   Use it as it is a faster option
+*/
+static inline void zerov(float* v, unsigned int size)
+{
+	memset((void*) v, 0, size * sizeof(float));
+}
+#else //use this if above doesn't work
+static inline void zerov(float* v)
+{
+	for(int i =0; i < size; i++)
+		v[i] = 0.0;
+}
+#endif
+
+static inline void sum_image(float* result, GdkPixbuf* image)
+{
+
+}
+
+static inline void save_image(float* image, char* filename)
+{
+
+}
+
 void *worker_thread(void *param)
 {
 	struct thread_params* my_data = (struct thread_params*) param;
+	float* res;
+	unsigned int size;
+	char filename_out[20];
+	GError *err;
 
-	printf("start_frame: %u",my_data->start_frame); 
+	size = image_params.width * image_params.height * image_params.channels;
+
+	res = malloc(sizeof(float) * size);
+
+	sprintf(filename_out, "%05d", my_data->start_frame);
+	strcat(filename_out, options.format);
+
+	for(; my_data->start_frame <= my_data->end_frame;
+	                   my_data->start_frame++){
+
+		zerov(res, size);
+	
+		for(int i = my_data->start_frame;
+				i < my_data->start_frame + options.window; i++) {
+			
+			GdkPixbuf* image_i = gdk_pixbuf_new_from_file(namelist[i]->d_name, &err);
+			if(unlikely(image_i == NULL))
+				goto error;
+
+			sum_image(res, image_i);	
+			g_object_unref(image_i);
+		}
+		free(namelist[my_data->start_frame]);
+
+		save_image(res, filename_out);
+	}
+	
 	pthread_exit(NULL);
+
+error:
+	fprintf(stderr, "[LOADING FILE] Error %d: %s.\n"
+			"All threads will die now", err->code, err->message );
+	exit(1);
+
 }
+/*********/
+
 
 static inline int read_filenames()
 {
@@ -135,28 +218,9 @@ int main(int argc, char* argv[])
 		pthread_create(&pool_threads[i].thr, NULL, worker_thread, (void*) &pool_threads[i] );
 	}
 
+	for(int i = 0; i < n_threads; i++){
+		pthread_join(pool_threads[i].thr, NULL);
+	}
 	pthread_exit(NULL);
-	
 
-#if 0
-	// iterate through images
-	// for_each_file_in_input_dir{
-		GdkPixbuf* buf = NULL;
-		buf = gdk_pixbuf_new_from_file (argv[0], NULL);
-		
-		if(!buf){
-			fprintf(stderr,"Error loading %s\n", argv[0]);
-
-		}
-		//std::cout << "Image info: \n";
-		//std::cout << "Width: " << gdk_pixbuf_get_width(buf) << "\n";
-		//std::cout << "Height: " << gdk_pixbuf_get_height(buf) << "\n\n";
-
-		g_object_unref (G_OBJECT (buf));
-
-//	}
-
-
-	return 0;
-#endif
 }
