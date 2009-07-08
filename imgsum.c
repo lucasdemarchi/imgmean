@@ -48,14 +48,7 @@ struct options_t options ={
 	.verbose      = 0
 };
 
-static inline int is_dir(char* path)
-{
-	DIR* dir = opendir(path);
-	if(!dir)
-		return 0;
-	closedir(dir);
-	return 1;
-}
+
 
 /* Used by scandir function to select only image files */
 static int filter_images(const struct dirent *d)
@@ -75,47 +68,77 @@ static int filter_images(const struct dirent *d)
 }
 
 
-
-int main(int argc, char* argv[])
+unsigned int get_n_threads(unsigned int n_frames)
 {
-	int ret;
-	struct dirent **namelist;
-	int n_files;
-	unsigned int n_threads;
+	unsigned int n_windows = n_frames / (options.window *2);
+	return n_windows < options.num_threads ? n_windows : options.num_threads;
+}
 
-	pthread_t* pool_threads;
+static struct dirent **namelist;
 
-//init graphic library
-	gdk_init(&argc, &argv);
 
-//read options from command line
-	if((ret = getoptions(argc, argv, &options)) > 0)
-		return ret-1;
+struct thread_params{
+	pthread_t thr;
+	unsigned int start_frame;
+	unsigned int end_frame;
+};
 
-//read list of filenames
-	n_files = scandir(".", &namelist, filter_images, alphasort);
+
+void *worker_thread(void *param)
+{
+	struct thread_params* my_data = (struct thread_params*) param;
+
+	printf("start_frame: %u",my_data->start_frame); 
+	pthread_exit(NULL);
+}
+
+static inline int read_filenames()
+{
+	int n_files = scandir(".", &namelist, filter_images, alphasort);
 	if(n_files < 0){
 		perror("Couldn't open directory to scan files\n");
 		return 1;
 	}
 	LOG("Images: %d \n", n_files);
 
-//test output directory
-	if(!is_dir(options.output_dir)){
-		fprintf(stderr, "Couldn't access output directory\n");
-		return 1;
+	return n_files;
+}
+
+int main(int argc, char* argv[])
+{
+	int ret;
+
+	int n_files;
+	unsigned int n_threads;
+
+	struct thread_params* pool_threads;
+	pthread_attr_t attr;
+
+
+	//init graphic library
+	gdk_init(&argc, &argv);
+
+	//read options from command line
+	if((ret = getoptions(argc, argv, &options)) > 0)
+		return ret-1;
+
+	
+	n_files = read_filenames();
+	n_threads = get_n_threads(n_files);
+
+
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
+
+	pool_threads = malloc( sizeof(struct thread_params) * n_threads);
+	for(int i = 0; i < n_threads; i++){
+		pthread_create(&pool_threads[i].thr, NULL, worker_thread, (void*) &pool_threads[i] );
 	}
 
-//	n_threads = get_n_threads(n_files);
-//	pool_threads = malloc( sizeof(pthread_t) * n_threads);
-	for(int i = 0; i < n_files; i++){
-		printf("%s\n", namelist[i]->d_name);
-		free(namelist[i]);
-	}
+	pthread_exit(NULL);
+	
 
-	free(namelist);
-
-	return 0;
+#if 0
 	// iterate through images
 	// for_each_file_in_input_dir{
 		GdkPixbuf* buf = NULL;
@@ -135,4 +158,5 @@ int main(int argc, char* argv[])
 
 
 	return 0;
+#endif
 }

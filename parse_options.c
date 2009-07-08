@@ -24,6 +24,17 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <string.h>
+#include <dirent.h>
+
+
+static inline int is_dir(char* path)
+{
+	DIR* dir = opendir(path);
+	if(!dir)
+		return 0;
+	closedir(dir);
+	return 1;
+}
 
 static inline void print_usage(FILE* f)
 {
@@ -116,8 +127,20 @@ int getoptions(int argc, char* argv[], struct options_t *options)
 		print_usage(stderr);
 		return 2;
 	}
+
 	options->input_dir = argv[optind++];
+	//test input directory
+	if(!is_dir(options->input_dir)){
+		fprintf(stderr, "Couldn't access input directory\n");
+		return 1;
+	}
+	
 	options->output_dir = argv[optind++];
+	//test output directory
+	if(!is_dir(options->output_dir)){
+		fprintf(stderr, "Couldn't access output directory\n");
+		return 1;
+	}
 	
 	return 0;	
 }
