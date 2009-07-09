@@ -1,0 +1,16 @@
+# Flags
+
+ifeq ($(optimize),true)
+  CFLAGS += -Wall -O3 -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF
+  ifeq ($(specialize),true)
+     CXXFLAGS += -march=$(platform) -mfpmath=sse
+  endif
+else
+  CXXFLAGS += -g -Wall
+endif
+
+#
+ifeq ($(usesse),true)
+  CFLAGS += -mmmx -msse -msse2 -msse3
+endif
+
