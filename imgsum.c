@@ -253,7 +253,7 @@ error:
  */
 static inline int read_filenames()
 {
-	int n_files = scandir(".", &namelist, filter_images, alphasort);
+	int n_files = scandir(options.input_dir, &namelist, filter_images, alphasort);
 	if(n_files < 0){
 		perror("Couldn't open directory to scan files\n");
 		return 1;
@@ -283,6 +283,12 @@ int main(int argc, char* argv[])
 	
 	n_files = read_filenames();
 	n_files_old = n_files;
+
+	if(n_files < options.window){
+		printf("I detected %u files. Number of files has to be at least of same"
+			   " dimension of window",n_files);
+		exit(1);
+	}
 
 	if(n_files % options.window != 0 && options.verbose){
 		printf("Number of files (%u) is not a multiple of window size.\n",n_files);
