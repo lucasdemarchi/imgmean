@@ -197,8 +197,6 @@ void *worker_thread(void *param)
 			sum_image(res, image_i);	
 			g_object_unref(image_i);
 		}
-		free(namelist[my_data->start_frame]);
-
 		save_image(res, filename_out);
 	}
 
@@ -266,7 +264,7 @@ int main(int argc, char* argv[])
 	//finish free things
 	
 	free(pool_threads);
-	for(int i = n_files - options.window; i < n_files; i++)
+	for(int i = 0; i < n_files; i++)
 	   free(namelist[i]);
 
 	free(namelist);
