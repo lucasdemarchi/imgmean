@@ -18,10 +18,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
  */
+#define _GNU_SOURCE
 #include <errno.h>
 #include <dirent.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gtk/gtk.h>
@@ -88,7 +90,7 @@ unsigned int get_n_threads(unsigned int n_frames)
 	
 	if (options.num_threads > max_threads){
 		options.num_threads = max_threads;
-		printf("Maximum number of threads reached: %u", mas_threads);
+		printf("Maximum number of threads reached: %u", max_threads);
 	}
 
 	return options.num_threads;
@@ -101,6 +103,7 @@ struct thread_params{
 	pthread_t thr;
 	unsigned int start_frame;
 	unsigned int end_frame;
+	int affinity;
 };
 
 
@@ -192,6 +195,21 @@ void *worker_thread(void *param)
 	unsigned int size;
 	char filename_out[20];
 	GError *err;
+	cpu_set_t cpuset;
+
+
+	// set affinity?
+	if(my_data->affinity >= 0){
+		CPU_ZERO(&cpuset);
+		CPU_SET(my_data->affinity, &cpuset);
+		int r;
+		if((r = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
+					&cpuset)) != 0){
+			errno=r;
+			perror("pthread_setaffinity_np");
+			exit(r);
+		}
+	}
 
 	size = image_params.width * image_params.height * image_params.channels;
 
@@ -250,7 +268,6 @@ int main(int argc, char* argv[])
 	int ret;
 
 	int n_files, n_files_old;
-	unsigned int n_threads;
 
 	struct thread_params* pool_threads;
 	pthread_attr_t attr;
@@ -273,23 +290,37 @@ int main(int argc, char* argv[])
 	}
 	n_files -= n_files % options.window;
 
-	n_threads = get_n_threads(n_files);
+	get_n_threads(n_files);
 
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
 
-	pool_threads = malloc( sizeof(struct thread_params) * n_threads);
-	for(int i = 0; i < n_threads; i++){
-		pool_threads[i].start_frame = i* (n_files/n_threads);
-		pool_threads[i].end_frame = 0;
+	pool_threads = malloc( sizeof(struct thread_params) * options.num_threads);
 
+	int n_files_out = n_files - options.window + 1;
+	int size_threaded =(int)(n_files_out / options.num_threads);
+	for(int i = 0; i < options.num_threads; i++){
+		pool_threads[i].start_frame = i * size_threaded;
+
+		if(unlikely(i == options.num_threads-1))
+			pool_threads[i].end_frame = n_files_out -1; // the last thread can have
+		                                                // some more work
+		else
+			pool_threads[i].end_frame = (i+1)* size_threaded - 1;
+
+		if(options.affinity && 
+				(options.num_threads <= sysconf(_SC_NPROCESSORS_ONLN)))
+			pool_threads[i].affinity = i;
+		else
+			pool_threads[i].affinity = -1;
+ 
 		pthread_create(&pool_threads[i].thr, NULL, worker_thread,
 				(void*) &pool_threads[i] );
 
 	}
 
-	for(int i = 0; i < n_threads; i++){
+	for(int i = 0; i < options.num_threads; i++){
 		pthread_join(pool_threads[i].thr, NULL);
 	}
 
