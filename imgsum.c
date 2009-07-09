@@ -189,7 +189,8 @@ void *worker_thread(void *param)
 		for(int i = my_data->start_frame;
 				i < my_data->start_frame + options.window; i++) {
 			
-			GdkPixbuf* image_i = gdk_pixbuf_new_from_file(namelist[i]->d_name, &err);
+			GdkPixbuf* image_i = gdk_pixbuf_new_from_file(namelist[i]->d_name,
+					&err);
 			if(unlikely(image_i == NULL))
 				goto error;
 
@@ -253,12 +254,25 @@ int main(int argc, char* argv[])
 
 	pool_threads = malloc( sizeof(struct thread_params) * n_threads);
 	for(int i = 0; i < n_threads; i++){
-		pthread_create(&pool_threads[i].thr, NULL, worker_thread, (void*) &pool_threads[i] );
+		pthread_create(&pool_threads[i].thr, NULL, worker_thread,
+				(void*) &pool_threads[i] );
+
 	}
 
 	for(int i = 0; i < n_threads; i++){
 		pthread_join(pool_threads[i].thr, NULL);
 	}
+
+	//finish free things
+	
+	free(pool_threads);
+	for(int i = n_files - options.window; i < n_files; i++)
+	   free(namelist[i]);
+
+	free(namelist);
+
+
+
 	pthread_exit(NULL);
 
 }
