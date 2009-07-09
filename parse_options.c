@@ -39,23 +39,23 @@ static inline int is_dir(char* path)
 static inline void print_usage(FILE* f)
 {
 	fprintf(f, "IMGSUM\n"
-			    "Author: Lucas De Marchi @ www.politreco.com\n\n"
-				"USAGE:\n"
-				"\timgsum <options> input_folder output_folder\n\n"
-				"OPTIONS:\n"
-				"\t-w,--window NUM            Window size, i.e., how many images are"
-				"\t                           are used to make one image. Default: 2"
-				"\t-h,--help                  Print this usage message\n"
-				"\t-f,--format FORMAT         Format to load pictures.They will be saved\n"
-				"\t                           with the same format.\n"
-				"\t                           Available options: jpg, png. Default: jpg\n"
-				"\t-a,--affinity              Each created thread runs in a separated\n"
-				"\t                           processor (if possible)\n"
-				"\t-j,--threads [NUM]         Create NUM threads.\n"
-				"\t                           Without NUM, threads = number_of_cpus\n"
-				"\t                           Without this option, it uses only 1 thread\n"
-				"\t-v,--verbose               Print info messages while working\n"
-				"\n");
+	"Author: Lucas De Marchi @ www.politreco.com\n\n"
+	"USAGE:\n"
+	"\timgsum <options> input_folder output_folder\n\n"
+	"OPTIONS:\n"
+	"\t-w,--window NUM            Window size, i.e., how many images are\n"
+	"\t                           are used to make one image. Default: 2\n"
+	"\t-h,--help                  Print this usage message\n"
+	"\t-f,--format FORMAT         Format to load pictures.They will be saved\n"
+	"\t                           with the same format.\n"
+	"\t                           Available options: jpg, png. Default: jpg\n"
+	"\t-a,--affinity              Each created thread runs in a separated\n"
+	"\t                           processor (if possible)\n"
+	"\t-j,--threads [NUM]         Create NUM threads.\n"
+	"\t                           Without NUM, threads = number_of_cpus\n"
+	"\t                           Without this option, it uses only 1 thread\n"
+	"\t-v,--verbose               Print info messages while working\n"
+	"\n");
 	return;
 }
 
