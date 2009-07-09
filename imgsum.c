@@ -28,13 +28,9 @@
 #include <string.h>
 #include "parse_options.h"
 
-#ifdef DEBUG
-#define LOG(a, b)          \
+#define LOG             \
 	if(options.verbose) \
-		printf(a, b)
-#else
-#define LOG(a,b) do { } while(0)
-#endif
+		printf
 
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
@@ -65,7 +61,8 @@ struct images_params_t image_params;
 
 
 
-/* Used by scandir function to select only image files */
+/* Used by scandir function to select only image files 
+ * */
 static int filter_images(const struct dirent *d)
 {
 	size_t len = strlen(d->d_name);
@@ -82,11 +79,19 @@ static int filter_images(const struct dirent *d)
 	return 0;
 }
 
-
+/* Returns the maximum possible number of threads
+ * based on window size and number of frames 
+ * */
 unsigned int get_n_threads(unsigned int n_frames)
 {
-	unsigned int n_windows = n_frames / (options.window *2);
-	return n_windows < options.num_threads ? n_windows : options.num_threads;
+	unsigned int max_threads = n_frames / options.window;
+	
+	if (options.num_threads > max_threads){
+		options.num_threads = max_threads;
+		printf("Maximum number of threads reached: %u", mas_threads);
+	}
+
+	return options.num_threads;
 }
 
 static struct dirent **namelist;
@@ -99,19 +104,17 @@ struct thread_params{
 };
 
 
-/* Here starts the algorithm to calculate new images
- * off the sequence availabel at namelist[]
- **********************************************************/
-
 #if !defined(STRICT_C)
 /* We know it works in Linux, Windows and MacOS
-   Use it as it is a faster option
-*/
+ * Use it as it is a faster option 
+ * */
 static inline void zerov(float* v, unsigned int size)
 {
 	memset((void*) v, 0, size * sizeof(float));
 }
-#else //use this if above doesn't work
+#else 
+/* use this other one if the above doesn't work 
+ * */
 static inline void zerov(float* v)
 {
 	for(int i =0; i < size; i++)
@@ -119,6 +122,10 @@ static inline void zerov(float* v)
 }
 #endif
 
+/* @result: where the result will be stored. Must be already allocated
+ * @image:  the pixbuf image. Each pixel is converted to float, divided by
+ *          window size and stored in corresponding result pixel 
+ * */
 static inline void sum_image(float* result, GdkPixbuf* image)
 {
 	guchar* buf = gdk_pixbuf_get_pixels(image);
@@ -134,6 +141,10 @@ static inline void sum_image(float* result, GdkPixbuf* image)
 
 }
 
+/* @buffer:   the image in float format.
+ * @filename: the filename where of the file. The path passed on command line
+ *            will be prepended to this name
+ * */
 static inline void save_image(float* buffer, char* filename)
 {
 	GdkPixbuf* image = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
@@ -156,16 +167,24 @@ static inline void save_image(float* buffer, char* filename)
 
 	sprintf(complete_path, "%s/%s",options.output_dir, filename);
 
+	int r; 
 	if(likely(!strcmp(options.format, "jpg")))
-		gdk_pixbuf_save(image, complete_path,"jpeg", &err, "quality", 100, NULL);
+		r = gdk_pixbuf_save(image, complete_path,"jpeg",
+				&err, "quality", 100, NULL);
 	else	
-		gdk_pixbuf_save(image, complete_path,"jpeg", &err, "quality", 100, NULL);
+		r = gdk_pixbuf_save(image, complete_path, options.format,
+				&err, "quality", 100, NULL);
+	if(r)
+		LOG("Not possible to save image. Error: %s", err->message);
 
 	free(complete_path);
 	g_object_unref(image);
 
 }
 
+/* The worker thread. Each thread will execute this function and each of them
+ * have a struct thread_params as parameter (allocated in main function) 
+ * */
 void *worker_thread(void *param)
 {
 	struct thread_params* my_data = (struct thread_params*) param;
@@ -209,9 +228,11 @@ error:
 	exit(1);
 
 }
-/*********/
 
-
+/* Helper function to open input_dir and get all image files.
+ * It saves in the global namelist variable and returns the number of
+ * filenames present in this var. 
+ */
 static inline int read_filenames()
 {
 	int n_files = scandir(".", &namelist, filter_images, alphasort);
@@ -228,7 +249,7 @@ int main(int argc, char* argv[])
 {
 	int ret;
 
-	int n_files;
+	int n_files, n_files_old;
 	unsigned int n_threads;
 
 	struct thread_params* pool_threads;
@@ -244,6 +265,14 @@ int main(int argc, char* argv[])
 
 	
 	n_files = read_filenames();
+	n_files_old = n_files;
+
+	if(n_files % options.window != 0 && options.verbose){
+		printf("Number of files (%u) is not a multiple of window size.\n",n_files);
+		printf("Ignoring the last files");
+	}
+	n_files -= n_files % options.window;
+
 	n_threads = get_n_threads(n_files);
 
 
@@ -252,6 +281,9 @@ int main(int argc, char* argv[])
 
 	pool_threads = malloc( sizeof(struct thread_params) * n_threads);
 	for(int i = 0; i < n_threads; i++){
+		pool_threads[i].start_frame = i* (n_files/n_threads);
+		pool_threads[i].end_frame = 0;
+
 		pthread_create(&pool_threads[i].thr, NULL, worker_thread,
 				(void*) &pool_threads[i] );
 
