@@ -121,11 +121,48 @@ static inline void zerov(float* v)
 
 static inline void sum_image(float* result, GdkPixbuf* image)
 {
+	guchar* buf = gdk_pixbuf_get_pixels(image);
+
+	for (int i = 0; i < image_params.width * image_params.channels; i++){
+		for(int j=0; j < image_params.height; j++){
+			*result = (*buf) /(float) options.window;
+			buf++;
+			result++;
+		}
+		buf += gdk_pixbuf_get_rowstride(image);
+	}
 
 }
 
-static inline void save_image(float* image, char* filename)
+static inline void save_image(float* buffer, char* filename)
 {
+	GdkPixbuf* image = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
+	        (image_params.channels==4), image_params.channels*8,
+	        image_params.width, image_params.height);
+		
+	guchar* buffer_new = gdk_pixbuf_get_pixels(image);
+
+	for (int i = 0; i < image_params.width * image_params.channels; i++){
+		for(int j=0; j < image_params.height; j++){
+			*buffer_new = (guchar) *buffer;
+			buffer_new++;
+			buffer++;
+		}
+		buffer += gdk_pixbuf_get_rowstride(image);
+	}
+	GError* err;
+	int len = strlen(options.output_dir) + strlen(filename) +2;
+	char* complete_path = malloc(sizeof(char) * len);
+
+	sprintf(complete_path, "%s/%s",options.output_dir, filename);
+
+	if(likely(!strcmp(options.format, "jpg")))
+		gdk_pixbuf_save(image, complete_path,"jpeg", &err, "quality", 100, NULL);
+	else	
+		gdk_pixbuf_save(image, complete_path,"jpeg", &err, "quality", 100, NULL);
+
+	free(complete_path);
+	g_object_unref(image);
 
 }
 
@@ -163,7 +200,8 @@ void *worker_thread(void *param)
 
 		save_image(res, filename_out);
 	}
-	
+
+	free(res);	
 	pthread_exit(NULL);
 
 error:
