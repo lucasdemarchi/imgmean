@@ -37,7 +37,7 @@
 #define unlikely(x)     __builtin_expect((x),0)
 
 #define FILENAME_IN_MAXLEN 15
-#define FILENAME_OUT_NAME_FORMAT "%05u"
+#define FILENAME_OUT_NAME_FORMAT "%05u."
 
 struct thread_params{
 	pthread_t thr;
