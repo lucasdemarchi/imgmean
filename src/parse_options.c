@@ -38,7 +38,7 @@ static inline int is_dir(char* path)
 
 static inline void print_usage(FILE* f)
 {
-	fprintf(f, "IMGSUM\n"
+	fprintf(f, "imgmean\n"
 	"Author: Lucas De Marchi @ www.politreco.com\n\n"
 	"USAGE:\n"
 	"\timgsum <options> input_folder output_folder\n\n"

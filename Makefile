@@ -2,7 +2,7 @@
 CC=gcc
 LD=g++
 CFLAGS = -std=gnu99
-SOURCES=imgmean.c parse_options.c
+SOURCES=src/imgmean.c src/parse_options.c
 OBJECTS=$(SOURCES:.c=.o)
 INCLUDES=
 EXECUTABLE=imgmean
@@ -44,5 +44,5 @@ $(EXECUTABLE): $(OBJECTS)
 all: $(SOURCES) $(EXECUTABLE)
 
 clean:
-	rm -f *.o
+	rm -f src/*.o
 	rm -f $(EXECUTABLE)

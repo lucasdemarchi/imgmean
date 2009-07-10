@@ -1,0 +1,24 @@
+DEPENDENCIES:
+
+	- You need a version of freeimage (http://freeimage.sourceforge.net/). Any
+	  version should work right.
+
+COMPILING
+
+Makefile and Makefile.flags have some options to tune the compilation. All the
+tunable parameters are in form of "parameter := setting", so it's easy to
+tune without depending in third party tools. The default is to optimize for
+core2 processors.
+
+To compile:
+
+$ make
+
+In the same folder will be the compiled program, imgmean
+
+PORTING
+
+It's not difficult to port to other platforms as only are few things are
+Linux specific (like setting the affinity of a thread).
+
+
