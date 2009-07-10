@@ -1,10 +1,10 @@
 
 CC=gcc
 CFLAGS = -std=gnu99
-SOURCES=imgsum.c parse_options.c
+SOURCES=imgmean.c parse_options.c
 OBJECTS=$(SOURCES:.c=.o)
 INCLUDES=`pkg-config --cflags gtk+-2.0  gdk-pixbuf-2.0`
-EXECUTABLE=imgsum
+EXECUTABLE=imgmean
 
 LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0 gthread-2.0` -pthread
 
@@ -35,5 +35,5 @@ $(EXECUTABLE): $(OBJECTS)
 all: $(SOURCES) $(EXECUTABLE)
 
 clean:
-	rm *.o
-	rm $(EXECUTABLE)
+	rm -f *.o
+	rm -f $(EXECUTABLE)
