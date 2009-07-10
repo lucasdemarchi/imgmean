@@ -135,7 +135,7 @@ static inline void sum_image(float* result, GdkPixbuf* image)
 
 	for (int i = 0; i < image_params.width * image_params.channels; i++){
 		for(int j=0; j < image_params.height; j++){
-			*result = (*buf) /(float) options.window;
+			*result += (*buf) /(float) options.window;
 			buf++;
 			result++;
 		}
@@ -179,7 +179,7 @@ static inline void save_image(float* buffer, char* filename)
 	else	
 		r = gdk_pixbuf_save(image, complete_path, options.format,
 				&err, "quality", "100", NULL);
-	if(r)
+	if(!r)
 		LOG("Not possible to save image. Error: %s", err->message);
 
 	free(complete_path);
