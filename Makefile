@@ -6,7 +6,7 @@ OBJECTS=$(SOURCES:.c=.o)
 INCLUDES=`pkg-config --cflags gtk+-2.0  gdk-pixbuf-2.0`
 EXECUTABLE=imgsum
 
-LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0` -pthread
+LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0 gthread-2.0` -pthread
 
 
 # Optimization

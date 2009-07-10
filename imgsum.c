@@ -300,8 +300,9 @@ int main(int argc, char* argv[])
 
 	struct thread_params* pool_threads;
 	pthread_attr_t attr;
-
-
+	
+	g_thread_init(NULL);
+	gdk_threads_init();
 	//init graphic library
 	gdk_init(&argc, &argv);
 
