@@ -301,10 +301,9 @@ int main(int argc, char* argv[])
 	struct thread_params* pool_threads;
 	pthread_attr_t attr;
 	
-	g_thread_init(NULL);
-	gdk_threads_init();
 	//init graphic library
 	gdk_init(&argc, &argv);
+
 
 	//read options from command line
 	if((ret = getoptions(argc, argv, &options)) > 0)
@@ -328,6 +327,11 @@ int main(int argc, char* argv[])
 
 	get_n_threads(n_files);
 
+	//Use thread synchronization only if we really need it
+	if(options.num_threads > 1){
+		g_thread_init(NULL);
+		gdk_threads_init();
+	}
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
