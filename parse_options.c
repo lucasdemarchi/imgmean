@@ -25,7 +25,7 @@
 #include <getopt.h>
 #include <string.h>
 #include <dirent.h>
-
+#include <FreeImage.h>
 
 static inline int is_dir(char* path)
 {
@@ -91,7 +91,13 @@ int getoptions(int argc, char* argv[], struct options_t *options)
 				break;
 			case 'f':
 				options->format = optarg;
-				if(strcmp(options->format, "jpg") && strcmp(options->format, "png")){
+				if(!strcmp(options->format, "jpg")){
+					options->format_mask = FIF_JPEG;
+				}
+				else if(!strcmp(options->format, "png")){
+					options->format_mask = FIF_PNG;
+				}
+				else{
 					fprintf(stderr, "ERROR: file format not recognized. See USAGE");
 					print_usage(stderr);
 				}

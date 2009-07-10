@@ -1,13 +1,16 @@
 
 CC=gcc
+LD=g++
 CFLAGS = -std=gnu99
 SOURCES=imgmean.c parse_options.c
 OBJECTS=$(SOURCES:.c=.o)
-INCLUDES=`pkg-config --cflags gtk+-2.0  gdk-pixbuf-2.0`
+INCLUDES=
 EXECUTABLE=imgmean
 
-LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0 gthread-2.0` -pthread
+LDFLAGS= -lfreeimage -pthread
 
+# Compile FreeImage statically?
+static_freeimage := false
 
 # Optimization
 optimize := true
@@ -26,8 +29,14 @@ usesse := true
 include Makefile.flags
 
 
+ifeq ($(static_freeimage),true)
+  LDFLAGS += -static
+else
+  LDFLAGS += -dynamic
+endif
+
 $(EXECUTABLE): $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+	$(LD)  $(OBJECTS) -o $@ $(LDFLAGS)
 
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@

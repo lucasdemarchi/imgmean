@@ -21,11 +21,14 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <FreeImage.h>
+
 struct options_t {
 	unsigned int window;
 	char* output_dir;
 	char* input_dir;
 	char* format;
+	enum FREE_IMAGE_FORMAT format_mask;
 
 	unsigned int num_threads;	
 	int affinity;

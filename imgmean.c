@@ -25,8 +25,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
-#include <gtk/gtk.h>
+#include <FreeImage.h>
 #include <string.h>
 #include "parse_options.h"
 
@@ -37,12 +36,30 @@
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
 
+#define FILENAME_IN_MAXLEN 15
+#define FILENAME_OUT_NAME_FORMAT "%05u"
 
-struct options_t options ={
+struct thread_params{
+	pthread_t thr;
+	unsigned int start_frame;
+	unsigned int end_frame;
+	int affinity;
+};
+
+struct images_params_t {
+	unsigned int height;
+	unsigned int width;
+	unsigned int channels;
+};
+
+
+
+static struct options_t options ={
 	.window       = 2,
 	.output_dir   = NULL,
 	.input_dir    = NULL,
 	.format       = "jpg",
+	.format_mask  = FIF_JPEG,
 
 	.num_threads  = 1,
 	.affinity     = 0,
@@ -51,15 +68,8 @@ struct options_t options ={
 
 };
 
-
-struct images_params_t {
-	unsigned int height;
-	unsigned int width;
-	unsigned int channels;
-	unsigned int rowstride;
-};
-
-struct images_params_t image_params;
+static struct images_params_t image_params;
+static struct dirent **namelist;
 
 
 
@@ -96,27 +106,17 @@ unsigned int get_n_threads(unsigned int n_frames)
 	return options.num_threads;
 }
 
-static struct dirent **namelist;
-
-
-struct thread_params{
-	pthread_t thr;
-	unsigned int start_frame;
-	unsigned int end_frame;
-	int affinity;
-};
-
 
 #if !defined(STRICT_C)
 /* We know it works in Linux, Windows and MacOS
- * Use it as it is a faster option 
+ * Use it as it is a faster operation 
  * */
 static inline void zerov(float* v, unsigned int size)
 {
 	memset((void*) v, 0, size * sizeof(float));
 }
 #else 
-/* use this other one if the above doesn't work 
+/* otherwise, use this other one 
  * */
 static inline void zerov(float* v)
 {
@@ -129,20 +129,44 @@ static inline void zerov(float* v)
  * @image:  the pixbuf image. Each pixel is converted to float, divided by
  *          window size and stored in corresponding result pixel 
  * */
-static inline void sum_image(float* result, GdkPixbuf* image)
+static inline void sum_image(float* result, FIBITMAP* image)
 {
-	guchar* buf = gdk_pixbuf_get_pixels(image);
+	FREE_IMAGE_TYPE image_type = FreeImage_GetImageType(image);
+	unsigned pitch = FreeImage_GetPitch(image);
 
-	for (int i = 0; i < image_params.width * image_params.channels; i++){
-		for(int j=0; j < image_params.height; j++){
-			*result += (*buf) /(float) options.window;
-			buf++;
-			result++;
+	if(likely((image_type == FIT_BITMAP) && (FreeImage_GetBPP(image) == 24))) {
+		BYTE *bits = (BYTE*)FreeImage_GetBits(image);
+		for(int j = 0; j < image_params.height; j++) {
+			BYTE *pixel = (BYTE*)bits;
+			for(int i = 0; i < image_params.width; i++) {
+				*result += pixel[FI_RGBA_RED];  ++result;
+				*result += pixel[FI_RGBA_GREEN];++result;
+				*result += pixel[FI_RGBA_BLUE]; ++result;
+				pixel += 3;
+			}
+			// next line
+			bits += pitch;
 		}
-		buf += gdk_pixbuf_get_rowstride(image) 
-			      - (image_params.width * image_params.channels);
 	}
-
+	else if(image_type == FIT_RGBF) {
+		BYTE *bits = (BYTE*)FreeImage_GetBits(image);
+		for(int j = 0; j < image_params.height; j++) {
+			FIRGBF *pixel = (FIRGBF*)bits;
+			for(int i = 0; i < image_params.width; i++) {
+				*result += pixel[i].red;   ++result;
+				*result += pixel[i].green; ++result;
+				*result += pixel[i].blue;  ++result;
+			}
+			// next line
+			bits += pitch;
+		}
+	}
+	else {
+		fprintf(stderr, "Unknown file format:\n"
+				"image_type: %d\n"
+				"BPP: %d", image_type, FreeImage_GetBPP(image));
+		exit(1);
+	}
 }
 
 /* @buffer:   the image in float format.
@@ -151,39 +175,60 @@ static inline void sum_image(float* result, GdkPixbuf* image)
  * */
 static inline void save_image(float* buffer, char* filename)
 {
-	GdkPixbuf* image = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
-	        (image_params.channels==4), 8,
-	        image_params.width, image_params.height);
+	FIBITMAP* image = FreeImage_Allocate(image_params.width,
+			image_params.height, image_params.channels * 8, 0, 0, 0);
 		
-	guchar* buffer_new = gdk_pixbuf_get_pixels(image);
+	BYTE *bits = (BYTE*)FreeImage_GetBits(image);
+	unsigned pitch = FreeImage_GetPitch(image);
 
-	for (int i = 0; i < image_params.width * image_params.channels; i++){
-		for(int j=0; j < image_params.height; j++){
-			*buffer_new = (guchar) *buffer;
-			buffer_new++;
+	for(int j = 0; j < image_params.height; j++) {
+		BYTE *pixel = (BYTE*)bits;
+		for(int i = 0; i < image_params.width; i++) {
+			pixel[FI_RGBA_RED] = (BYTE) (*buffer / options.window);
 			buffer++;
+			pixel[FI_RGBA_GREEN] = (BYTE) (*buffer / options.window);
+			buffer++;
+			pixel[FI_RGBA_BLUE] = (BYTE) (*buffer / options.window);
+			buffer++;
+			pixel += 3;
 		}
-		buffer += gdk_pixbuf_get_rowstride(image) 
-			      - (image_params.width * image_params.channels);
+		// next line
+		bits += pitch;
 	}
-	GError* err = NULL;
+
 	int len = strlen(options.output_dir) + strlen(filename) +2;
 	char* complete_path = malloc(sizeof(char) * len);
-
 	sprintf(complete_path, "%s/%s",options.output_dir, filename);
 
-	int r; 
-	if(likely(!strcmp(options.format, "jpg")))
-		r = gdk_pixbuf_save(image, complete_path,"jpeg",
-				&err, "quality", "100", NULL);
-	else	
-		r = gdk_pixbuf_save(image, complete_path, options.format,
-				&err, "quality", "100", NULL);
+	int r;
+	if(!strcmp(options.format,"jpg"))
+		r = FreeImage_Save(options.format_mask, image,
+				complete_path,JPEG_QUALITYSUPERB);
+	else //PNG
+		r = FreeImage_Save(options.format_mask, image, 
+				complete_path,PNG_DEFAULT);
 	if(!r)
-		LOG("Not possible to save image. Error: %s", err->message);
+		LOG("Not possible to save image %s",complete_path );
 
 	free(complete_path);
-	g_object_unref(image);
+	FreeImage_Unload(image);
+
+
+}
+
+static inline void set_affinity(int cpu)
+{
+	cpu_set_t cpuset;
+	
+	CPU_ZERO(&cpuset);
+	CPU_SET(cpu, &cpuset);
+	int r;
+	if((r = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
+				&cpuset)) != 0){
+		errno=r;
+		perror("pthread_setaffinity_np");
+		exit(r);
+	}
 
 }
 
@@ -197,34 +242,22 @@ void *worker_thread(void *param)
 	unsigned int size;
 	char filename_out[20];
 	char* filename_in;
-	GError *err;
-	cpu_set_t cpuset;
 
 
-	// set affinity
-	if(my_data->affinity >= 0){
-		CPU_ZERO(&cpuset);
-		CPU_SET(my_data->affinity, &cpuset);
-		int r;
-		if((r = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
-					&cpuset)) != 0){
-			errno=r;
-			perror("pthread_setaffinity_np");
-			exit(r);
-		}
-	}
+	if(my_data->affinity >=0)
+		set_affinity(my_data->affinity);
 	
 	size = image_params.width * image_params.height * image_params.channels;
 
 	res = malloc(sizeof(float) * size);
-
-
 	
-	filename_in = malloc (sizeof(char) * (strlen(options.input_dir) + 15));
+	filename_in = malloc (sizeof(char) * (strlen(options.input_dir)
+				+ FILENAME_IN_MAXLEN));
+
 	for(; my_data->start_frame <= my_data->end_frame;
 	                   my_data->start_frame++){
 		
-		sprintf(filename_out, "%05d.", my_data->start_frame);
+		sprintf(filename_out, FILENAME_OUT_NAME_FORMAT, my_data->start_frame);
 		strcat(filename_out, options.format);
 
 		zerov(res, size);
@@ -234,14 +267,16 @@ void *worker_thread(void *param)
 
 			sprintf(filename_in, "%s/%s", options.input_dir,
 					namelist[i]->d_name);
+			if(options.verbose)
+				printf("Opening %s", filename_in);
 
-			err = NULL;
-			GdkPixbuf* image_i = gdk_pixbuf_new_from_file(filename_in, &err);
-			if(unlikely(image_i == NULL))
+			FIBITMAP *image_i = FreeImage_Load(options.format_mask, filename_in, 0);
+			if(unlikely(!image_i))
 				goto error;
 
-			sum_image(res, image_i);	
-			g_object_unref(image_i);
+			sum_image(res, image_i);
+
+			FreeImage_Unload(image_i);
 		}
 		save_image(res, filename_out);
 	}
@@ -250,8 +285,8 @@ void *worker_thread(void *param)
 	pthread_exit(NULL);
 
 error:
-	fprintf(stderr, "[LOADING FILE] Error %d: %s.\n"
-			"All threads will die now", err->code, err->message );
+	fprintf(stderr, "[LOADING FILE] Error.\n"
+			"All threads will die now");
 	exit(1);
 
 }
@@ -279,14 +314,12 @@ static inline int read_filenames()
 					namelist[0]->d_name);
 
 
-	GError *err = NULL;
-	GdkPixbuf *image =  gdk_pixbuf_new_from_file(filename_in,&err);
-	image_params.width     = gdk_pixbuf_get_width(image);
-	image_params.height    = gdk_pixbuf_get_height(image);
-	image_params.channels  = gdk_pixbuf_get_n_channels(image);
-	image_params.rowstride = gdk_pixbuf_get_rowstride(image);
+	FIBITMAP *image = FreeImage_Load(options.format_mask, filename_in, 0);
+	image_params.width     = FreeImage_GetWidth(image);
+	image_params.height    = FreeImage_GetHeight(image);
+	image_params.channels  = FreeImage_GetBPP(image) / 8; //each channel has 8 bits
 
-	g_object_unref(image);
+	FreeImage_Unload(image);
 	free(filename_in);
 
 	return n_files;
@@ -301,10 +334,7 @@ int main(int argc, char* argv[])
 	struct thread_params* pool_threads;
 	pthread_attr_t attr;
 	
-	g_thread_init(NULL);
-	gdk_threads_init();
-	//init graphic library
-	gdk_init(&argc, &argv);
+	FreeImage_Initialise(0);
 
 	//read options from command line
 	if((ret = getoptions(argc, argv, &options)) > 0)
@@ -315,17 +345,18 @@ int main(int argc, char* argv[])
 	n_files_old = n_files;
 
 	if(n_files < options.window){
-		printf("I detected %u files. Number of files has to be at least of same"
+		printf("%u files detected. Number of files has to be at least the same"
 			   " dimension of window",n_files);
 		exit(1);
 	}
 
-	if(n_files % options.window != 0 && options.verbose){
-		printf("Number of files (%u) is not a multiple of window size.\n",n_files);
-		printf("Ignoring the last files");
-	}
-	n_files -= n_files % options.window;
+//	if(n_files % options.window != 0 && options.verbose){
+//		printf("Number of files (%u) is not a multiple of window size.\n",n_files);
+//		printf("Ignoring the last files");
+//	}
+//	n_files -= n_files % options.window;
 
+	//update options.num_threads to min(options.num_thread, MAX_threads)
 	get_n_threads(n_files);
 
 
@@ -340,8 +371,8 @@ int main(int argc, char* argv[])
 		pool_threads[i].start_frame = i * size_threaded;
 
 		if(unlikely(i == options.num_threads-1))
-			pool_threads[i].end_frame = n_files_out -1; // the last thread can have
-		                                                // some more work
+			pool_threads[i].end_frame = n_files_out -1; // the last thread can
+		                                                // have some more work
 		else
 			pool_threads[i].end_frame = (i+1)* size_threaded - 1;
 
@@ -369,7 +400,7 @@ int main(int argc, char* argv[])
 	free(namelist);
 
 
-
+	FreeImage_DeInitialise();
 	pthread_exit(NULL);
 
 }
