@@ -73,7 +73,7 @@ static int filter_images(const struct dirent *d)
 
 	if(ext_len >= len)
 		return 0;
-
+	
 	ext = (char*)(d->d_name + len - ext_len);
 	if(!strcmp(ext, options.format))
 		return 1;
@@ -139,7 +139,8 @@ static inline void sum_image(float* result, GdkPixbuf* image)
 			buf++;
 			result++;
 		}
-		buf += gdk_pixbuf_get_rowstride(image);
+		buf += gdk_pixbuf_get_rowstride(image) 
+			      - (image_params.width * image_params.channels);
 	}
 
 }
@@ -151,7 +152,7 @@ static inline void sum_image(float* result, GdkPixbuf* image)
 static inline void save_image(float* buffer, char* filename)
 {
 	GdkPixbuf* image = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
-	        (image_params.channels==4), image_params.channels*8,
+	        (image_params.channels==4), 8,
 	        image_params.width, image_params.height);
 		
 	guchar* buffer_new = gdk_pixbuf_get_pixels(image);
@@ -162,9 +163,10 @@ static inline void save_image(float* buffer, char* filename)
 			buffer_new++;
 			buffer++;
 		}
-		buffer += gdk_pixbuf_get_rowstride(image);
+		buffer += gdk_pixbuf_get_rowstride(image) 
+			      - (image_params.width * image_params.channels);
 	}
-	GError* err;
+	GError* err = NULL;
 	int len = strlen(options.output_dir) + strlen(filename) +2;
 	char* complete_path = malloc(sizeof(char) * len);
 
@@ -173,10 +175,10 @@ static inline void save_image(float* buffer, char* filename)
 	int r; 
 	if(likely(!strcmp(options.format, "jpg")))
 		r = gdk_pixbuf_save(image, complete_path,"jpeg",
-				&err, "quality", 100, NULL);
+				&err, "quality", "100", NULL);
 	else	
 		r = gdk_pixbuf_save(image, complete_path, options.format,
-				&err, "quality", 100, NULL);
+				&err, "quality", "100", NULL);
 	if(r)
 		LOG("Not possible to save image. Error: %s", err->message);
 
@@ -194,11 +196,12 @@ void *worker_thread(void *param)
 	float* res;
 	unsigned int size;
 	char filename_out[20];
+	char* filename_in;
 	GError *err;
 	cpu_set_t cpuset;
 
 
-	// set affinity?
+	// set affinity
 	if(my_data->affinity >= 0){
 		CPU_ZERO(&cpuset);
 		CPU_SET(my_data->affinity, &cpuset);
@@ -210,24 +213,30 @@ void *worker_thread(void *param)
 			exit(r);
 		}
 	}
-
+	
 	size = image_params.width * image_params.height * image_params.channels;
 
 	res = malloc(sizeof(float) * size);
 
-	sprintf(filename_out, "%05d", my_data->start_frame);
-	strcat(filename_out, options.format);
 
+	
+	filename_in = malloc (sizeof(char) * (strlen(options.input_dir) + 15));
 	for(; my_data->start_frame <= my_data->end_frame;
 	                   my_data->start_frame++){
+		
+		sprintf(filename_out, "%05d.", my_data->start_frame);
+		strcat(filename_out, options.format);
 
 		zerov(res, size);
 	
 		for(int i = my_data->start_frame;
 				i < my_data->start_frame + options.window; i++) {
-			
-			GdkPixbuf* image_i = gdk_pixbuf_new_from_file(namelist[i]->d_name,
-					&err);
+
+			sprintf(filename_in, "%s/%s", options.input_dir,
+					namelist[i]->d_name);
+
+			err = NULL;
+			GdkPixbuf* image_i = gdk_pixbuf_new_from_file(filename_in, &err);
 			if(unlikely(image_i == NULL))
 				goto error;
 
@@ -236,7 +245,7 @@ void *worker_thread(void *param)
 		}
 		save_image(res, filename_out);
 	}
-
+	free(filename_in);
 	free(res);	
 	pthread_exit(NULL);
 
@@ -250,7 +259,7 @@ error:
 /* Helper function to open input_dir and get all image files.
  * It saves in the global namelist variable and returns the number of
  * filenames present in this var. 
- */
+ * */
 static inline int read_filenames()
 {
 	int n_files = scandir(options.input_dir, &namelist, filter_images, alphasort);
@@ -259,6 +268,26 @@ static inline int read_filenames()
 		return 1;
 	}
 	LOG("Images: %d \n", n_files);
+
+	//read the first image to get parameters
+	//
+	//
+	//
+	char* filename_in = malloc (sizeof(char) * (strlen(options.input_dir) +15));
+	
+	sprintf(filename_in, "%s/%s", options.input_dir,
+					namelist[0]->d_name);
+
+
+	GError *err = NULL;
+	GdkPixbuf *image =  gdk_pixbuf_new_from_file(filename_in,&err);
+	image_params.width     = gdk_pixbuf_get_width(image);
+	image_params.height    = gdk_pixbuf_get_height(image);
+	image_params.channels  = gdk_pixbuf_get_n_channels(image);
+	image_params.rowstride = gdk_pixbuf_get_rowstride(image);
+
+	g_object_unref(image);
+	free(filename_in);
 
 	return n_files;
 }

@@ -10,7 +10,7 @@ LDFLAGS=`pkg-config --libs gtk+-2.0 gdk-pixbuf-2.0` -pthread
 
 
 # Optimization
-optimize := true
+optimize := false
 
 # processor optmization of GCC. Look for -march
 # If you are not sure of your system, just set 'specialize' to false. if
@@ -21,7 +21,7 @@ specialize := true
 arch := core2
 
 # sse flags
-usesse := true
+usesse := false
 
 include Makefile.flags
 
